@@ -1,12 +1,12 @@
 # 1. VPC
 resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block = var.vpc_cidr
 }
 
 # 2. subnet
 resource "aws_subnet" "public_subnet" {
   vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.1.0/24"
+  cidr_block = var.public_subnet
 
   tags = {
     Name = "public_subnet"
@@ -15,7 +15,7 @@ resource "aws_subnet" "public_subnet" {
 
 resource "aws_subnet" "private_subnet" {
   vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.2.0/24"
+  cidr_block = var.private_subnet
 
   tags = {
     Name = "private_subnet"
@@ -28,7 +28,7 @@ resource "aws_route_table" "public_rt" {
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.example.id
+    gateway_id = aws_internet_gateway.igw.id
   }
 }
 
@@ -37,7 +37,7 @@ resource "aws_route_table" "private_rt" {
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.example.id
+    gateway_id = aws_nat_gateway.natgateway.id
   }
 }
 
@@ -53,3 +53,29 @@ resource "aws_route_table_association" "private_association" {
 }
 
 # 5. Internet Gateway
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "MyInternetGateway"
+  }
+}
+
+# 6. Elastic Ip
+resource "aws_eip" "nat" {
+  domain = "vpc"
+}
+
+# 7. Nat Gateway
+resource "aws_nat_gateway" "natgateway" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public_subnet.id
+
+  tags = {
+    Name = "MyNatGateway"
+  }
+
+  # To ensure proper ordering, it is recommended to add an explicit dependency
+  # on the Internet Gateway for the VPC.
+  depends_on = [aws_internet_gateway.igw]
+}
